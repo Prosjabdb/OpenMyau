@@ -154,4 +154,67 @@ public class HitSelect extends Module {
     private void resetMotion() {
         if (!set) return;
 
-        KeepSprint keepSprint = (Keep
+        KeepSprint keepSprint = (KeepSprint) Myau.moduleManager.modules.get(KeepSprint.class);
+        if (keepSprint == null) return;
+
+        try {
+            keepSprint.slowdown.setValue((int) savedSlowdown);
+            if (keepSprint.isEnabled()) keepSprint.toggle();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        set = false;
+        savedSlowdown = 0.0;
+    }
+
+    private void doCriticalJump() {
+        if (mc.thePlayer.onGround) {
+            mc.thePlayer.motionY = 0.1 + Math.random() * 0.05;
+        }
+    }
+
+    private void spoofSprint() {
+        if (!sprintState && mc.thePlayer.isSprinting()) sprintState = true;
+        mc.thePlayer.setSprinting(true);
+    }
+
+    private boolean isMovingTowards(EntityLivingBase source, EntityLivingBase target, double maxAngle) {
+        Vec3 currentPos = source.getPositionVector();
+        Vec3 lastPos = new Vec3(source.lastTickPosX, source.lastTickPosY, source.lastTickPosZ);
+        Vec3 targetPos = target.getPositionVector();
+
+        double mx = currentPos.xCoord - lastPos.xCoord;
+        double mz = currentPos.zCoord - lastPos.zCoord;
+        double movementLength = Math.sqrt(mx * mx + mz * mz);
+        if (movementLength == 0.0) return false;
+        mx /= movementLength;
+        mz /= movementLength;
+
+        double tx = targetPos.xCoord - currentPos.xCoord;
+        double tz = targetPos.zCoord - currentPos.zCoord;
+        double targetLength = Math.sqrt(tx * tx + tz * tz);
+        if (targetLength == 0.0) return false;
+        tx /= targetLength;
+        tz /= targetLength;
+
+        double dotProduct = mx * tx + mz * tz;
+        return dotProduct >= Math.cos(Math.toRadians(maxAngle));
+    }
+
+    @Override
+    public void onDisabled() {
+        resetMotion();
+        sprintState = false;
+        set = false;
+        savedSlowdown = 0.0;
+        blockedHits = 0;
+        allowedHits = 0;
+        tickReset = 0;
+    }
+
+    @Override
+    public String[] getSuffix() {
+        return new String[]{mode.getModeString()};
+    }
+}
