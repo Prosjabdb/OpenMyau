@@ -5,6 +5,7 @@ import myau.events.AttackEvent;
 import myau.events.TickEvent;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
+import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
@@ -15,9 +16,10 @@ import net.minecraft.util.MovingObjectPosition;
 
 public class MoreKB extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LEGIT", "LEGIT_FAST", "LESS_PACKET", "PACKET", "DOUBLE_PACKET"});
-    public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
-    public final BooleanProperty onlyGround = new BooleanProperty("only-ground", true);
+    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"LEGIT", "LEGIT_FAST", "LESS_PACKET", "PACKET", "DOUBLE_PACKET"});
+    public final BooleanProperty intelligent = new BooleanProperty("Intelligent", false);
+    public final BooleanProperty onlyGround = new BooleanProperty("Only Ground", true);
+    public final FloatProperty velocityThreshold = new FloatProperty("Velocity Threshold", 0.1F, 0.0F, 1.0F);
     private boolean shouldSprintReset;
     private EntityLivingBase target;
 
@@ -40,16 +42,14 @@ public class MoreKB extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (!this.isEnabled()) {
+        if (!this.isEnabled() || event.getType() != EventType.PRE) {
             return;
         }
         if (this.mode.getValue() == 1) {
-            if (this.target != null && this.isMoving()) {
-                if ((this.onlyGround.getValue() && mc.thePlayer.onGround) || !this.onlyGround.getValue()) {
-                    mc.thePlayer.sprintingTicksLeft = 0;
-                }
-                this.target = null;
+            if (this.target != null && this.isMoving() && (this.onlyGround.getValue() ? mc.thePlayer.onGround : true)) {
+                mc.thePlayer.sprintingTicksLeft = 0;
             }
+            this.target = null;
             return;
         }
         EntityLivingBase entity = null;
@@ -66,7 +66,7 @@ public class MoreKB extends Module {
         if (this.intelligent.getValue() && diffY > 120.0F) {
             return;
         }
-        if (entity.hurtTime == 10) {
+        if (entity.hurtTime == 10 && Math.sqrt(entity.motionX * entity.motionX + entity.motionZ * entity.motionZ) > this.velocityThreshold.getValue()) {
             switch (this.mode.getValue()) {
                 case 0:
                     this.shouldSprintReset = true;
@@ -105,6 +105,6 @@ public class MoreKB extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{this.mode.getValue().toString()};
+        return new String[]{this.mode.getModeString()};
     }
 }
