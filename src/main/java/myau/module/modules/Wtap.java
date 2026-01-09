@@ -100,7 +100,7 @@ public class Wtap extends Module {
 
         if (event.getPacket() instanceof C02PacketUseEntity) {
             C02PacketUseEntity packet = (C02PacketUseEntity) event.getPacket();
-            if (packet.getAction() == Action.ATTACK && !this.active && this.timer.hasTimeElapsed((long) this.cooldownMs.getValue()) && this.canTrigger()) {
+            if (packet.getAction() == Action.ATTACK && !this.active && this.timer.hasTimeElapsed(this.cooldownMs.getValue().longValue()) && this.canTrigger()) {
                 this.activate();
             }
         }
