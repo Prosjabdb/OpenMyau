@@ -33,6 +33,7 @@ public class AimAssist extends Module {
     public final BooleanProperty team = new BooleanProperty("Teams", true);
     public final BooleanProperty prediction = new BooleanProperty("Prediction", true);
     public final FloatProperty randomization = new FloatProperty("Randomization", 0.5F, 0.0F, 2.0F);
+    public final BooleanProperty onlyOnClick = new BooleanProperty("Only on Click", true); // New property
 
     private boolean isValidTarget(EntityPlayer entityPlayer) {
         if (entityPlayer == null || entityPlayer == mc.thePlayer || entityPlayer == mc.thePlayer.ridingEntity) {
@@ -81,7 +82,10 @@ public class AimAssist extends Module {
         if (this.weaponOnly.getValue() && !ItemUtil.hasRawUnbreakingEnchant() && (!this.allowTools.getValue() || !ItemUtil.isHoldingTool())) {
             return;
         }
-        boolean attacking = PlayerUtil.isAttacking();
+        boolean attacking = PlayerUtil.isAttacking() || mc.gameSettings.keyBindAttack.isKeyDown();
+        if (this.onlyOnClick.getValue() && !attacking) {
+            return; // Only activate if clicking
+        }
         if (attacking && this.isLookingAtBlock()) {
             return;
         }
