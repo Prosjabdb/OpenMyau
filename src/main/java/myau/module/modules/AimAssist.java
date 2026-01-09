@@ -23,7 +23,7 @@ public class AimAssist extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private final TimerUtil timer = new TimerUtil();
     public final FloatProperty hSpeed = new FloatProperty("Horizontal Speed", 3.0F, 0.0F, 10.0F);
-    public final FloatProperty vSpeed = new FloatProperty("Vertical Speed", 0.0F, 10.0F);
+    public final FloatProperty vSpeed = new FloatProperty("Vertical Speed", 0.0F, 0.0F, 10.0F);
     public final FloatProperty smoothing = new FloatProperty("Smoothing", 50.0F, 0.0F, 100.0F);
     public final FloatProperty range = new FloatProperty("Range", 4.5F, 3.0F, 8.0F);
     public final IntProperty fov = new IntProperty("FOV", 90, 30, 360);
