@@ -35,7 +35,8 @@ public class AutoClicker extends Module {
     public final FloatProperty jitterStrength = new FloatProperty("Jitter Strength", 0.5F, 0.0F, 2.0F);
 
     private long getNextClickDelay() {
-        return 1000L / RandomUtil.nextLong(this.minCPS.getValue(), this.maxCPS.getValue());
+        long baseDelay = 1000L / RandomUtil.nextLong(this.minCPS.getValue(), this.maxCPS.getValue());
+        return baseDelay + (long) (Math.random() * 50); // Add slight randomization
     }
 
     private long getBlockHitDelay() {
@@ -88,7 +89,7 @@ public class AutoClicker extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.PRE) {
+        if (event.getType() != EventType.PRE || mc.currentScreen != null) {
             return;
         }
         if (this.clickDelay > 0L) {
@@ -97,28 +98,26 @@ public class AutoClicker extends Module {
         if (this.blockHitDelay > 0L) {
             this.blockHitDelay -= 50L;
         }
-        if (mc.currentScreen != null) {
+        if (!this.isEnabled() || !this.canClick() || !mc.gameSettings.keyBindAttack.isKeyDown()) {
             return;
         }
-        if (this.isEnabled() && this.canClick() && mc.gameSettings.keyBindAttack.isKeyDown()) {
-            if (!mc.thePlayer.isUsingItem()) {
-                while (this.clickDelay <= 0L) {
-                    KeyBindUtil.updateKeyState(mc.gameSettings.keyBindAttack.getKeyCode());
-                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-                    KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
-                    this.clickDelay += this.getNextClickDelay();
-                    if (this.jitter.getValue()) {
-                        mc.thePlayer.rotationYaw += (float) (Math.random() * this.jitterStrength.getValue() - this.jitterStrength.getValue() / 2);
-                        mc.thePlayer.rotationPitch += (float) (Math.random() * this.jitterStrength.getValue() - this.jitterStrength.getValue() / 2);
-                    }
+        if (!mc.thePlayer.isUsingItem()) {
+            while (this.clickDelay <= 0L) {
+                KeyBindUtil.updateKeyState(mc.gameSettings.keyBindAttack.getKeyCode());
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
+                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+                this.clickDelay += this.getNextClickDelay();
+                if (this.jitter.getValue()) {
+                    mc.thePlayer.rotationYaw += (float) (Math.random() * this.jitterStrength.getValue() - this.jitterStrength.getValue() / 2);
+                    mc.thePlayer.rotationPitch += (float) (Math.random() * this.jitterStrength.getValue() - this.jitterStrength.getValue() / 2);
                 }
             }
-            if (this.blockHit.getValue() && this.blockHitDelay <= 0L && mc.gameSettings.keyBindUseItem.isKeyDown() && ItemUtil.isHoldingSword()) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
-                if (!mc.thePlayer.isUsingItem()) {
-                    KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                    this.blockHitDelay += this.getBlockHitDelay();
-                }
+        }
+        if (this.blockHit.getValue() && this.blockHitDelay <= 0L && mc.gameSettings.keyBindUseItem.isKeyDown() && ItemUtil.isHoldingSword()) {
+            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
+            if (!mc.thePlayer.isUsingItem()) {
+                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
+                this.blockHitDelay += this.getBlockHitDelay();
             }
         }
     }
