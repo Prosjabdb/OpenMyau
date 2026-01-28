@@ -71,7 +71,7 @@ public class ImprovedHitSelect extends Module {
     
     // ==================== W-Tap Properties ====================
     public final BooleanProperty strictWTap = new BooleanProperty("Strict W-Tap", false);
-    public final FloatProperty minWTapDistance = new FloatProperty("Min W-Tap Distance", 2.5, 1.0F, 5.0F);
+    public final FloatProperty minWTapDistance = new FloatProperty("Min W-Tap Distance", 2.5F, 1.0F, 5.0F);
     
     // ==================== Advanced Properties ====================
     public final BooleanProperty allowWallHits = new BooleanProperty("Allow Wall Hits", true);
@@ -149,9 +149,6 @@ public class ImprovedHitSelect extends Module {
     
     // ==================== Core Logic ====================
     
-    /**
-     * Main hit evaluation logic with smart decision making
-     */
     private HitEvaluation evaluateHit(EntityLivingBase player, EntityLivingBase target) {
         CombatData combatData = combatDataMap.computeIfAbsent(target, k -> new CombatData());
         
@@ -190,14 +187,12 @@ public class ImprovedHitSelect extends Module {
                 evaluation = new HitEvaluation(true, activeMode);
         }
         
-        // Combo preservation override
         if (!evaluation.allow && preserveCombo.getValue() && combatData.isInCombo()) {
             if (combatData.comboLength >= minComboHits.getValue()) {
                 evaluation = new HitEvaluation(true, "Combo");
             }
         }
         
-        // Health-aware override (emergency situations)
         if (!evaluation.allow && healthAware.getValue()) {
             float playerHealth = player.getHealth();
             if (playerHealth <= lowHealthThreshold.getValue()) {
@@ -208,9 +203,6 @@ public class ImprovedHitSelect extends Module {
         return evaluation;
     }
     
-    /**
-     * Determine which mode should be active (dynamic switching)
-     */
     private String determineActiveMode(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         String mode = primaryMode.getValue();
         
@@ -254,9 +246,6 @@ public class ImprovedHitSelect extends Module {
         return selectedMode;
     }
     
-    /**
-     * Smart mode: Uses AI-like decision making
-     */
     private HitEvaluation evaluateSmartMode(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         int score = 0;
         
@@ -271,9 +260,6 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(allow, "Smart");
     }
     
-    /**
-     * Second hit strategy
-     */
     private HitEvaluation evaluateSecondHit(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         if (target.hurtTime != 0) {
             return new HitEvaluation(true, "Second");
@@ -298,9 +284,6 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(false, "Second");
     }
     
-    /**
-     * Critical hits strategy
-     */
     private HitEvaluation evaluateCriticalHits(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         if (player.onGround) {
             return new HitEvaluation(true, "Criticals");
@@ -320,9 +303,6 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(false, "Criticals");
     }
     
-    /**
-     * W-Tap strategy
-     */
     private HitEvaluation evaluateWTapHits(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         if (allowWallHits.getValue() && player.isCollidedHorizontally) {
             return new HitEvaluation(true, "W-Tap");
@@ -346,9 +326,6 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(false, "W-Tap");
     }
     
-    /**
-     * Combo mode
-     */
     private HitEvaluation evaluateComboMode(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         if (data.isInCombo()) {
             return new HitEvaluation(true, "Combo");
@@ -366,9 +343,6 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(false, "Combo");
     }
     
-    /**
-     * Reach mode
-     */
     private HitEvaluation evaluateReachMode(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         double distance = player.getDistanceToEntity(target);
         double minReach = optimalReach.getValue() - reachTolerance.getValue();
@@ -382,16 +356,9 @@ public class ImprovedHitSelect extends Module {
             return new HitEvaluation(true, "Reach");
         }
         
-        if (distance < minReach) {
-            return new HitEvaluation(false, "Reach");
-        }
-        
         return new HitEvaluation(false, "Reach");
     }
     
-    /**
-     * Health mode
-     */
     private HitEvaluation evaluateHealthMode(EntityLivingBase player, EntityLivingBase target, CombatData data) {
         float playerHealth = player.getHealth();
         float targetHealth = target.getHealth();
@@ -419,19 +386,17 @@ public class ImprovedHitSelect extends Module {
         return new HitEvaluation(true, "Health");
     }
     
-    // ==================== KeepSprint Integration ====================
-    
     private void applyKeepSprintFix() {
         if (!autoKeepSprint.getValue() || keepSprintModified) {
             return;
         }
         
-        KeepSprint keepSprint = (KeepSprint) Myau.moduleManager.modules.get(KeepSprint.class);
-        if (keepSprint == null) {
-            return;
-        }
-        
         try {
+            KeepSprint keepSprint = (KeepSprint) Myau.moduleManager.modules.get(KeepSprint.class);
+            if (keepSprint == null) {
+                return;
+            }
+            
             savedKeepSprintState = keepSprint.isEnabled();
             savedSlowdown = keepSprint.slowdown.getValue().doubleValue();
             
@@ -451,13 +416,13 @@ public class ImprovedHitSelect extends Module {
             return;
         }
         
-        KeepSprint keepSprint = (KeepSprint) Myau.moduleManager.modules.get(KeepSprint.class);
-        if (keepSprint == null) {
-            keepSprintModified = false;
-            return;
-        }
-        
         try {
+            KeepSprint keepSprint = (KeepSprint) Myau.moduleManager.modules.get(KeepSprint.class);
+            if (keepSprint == null) {
+                keepSprintModified = false;
+                return;
+            }
+            
             keepSprint.slowdown.setValue((int) savedSlowdown);
             
             if (keepSprint.isEnabled() != savedKeepSprintState) {
@@ -469,8 +434,6 @@ public class ImprovedHitSelect extends Module {
             // Silent fail
         }
     }
-    
-    // ==================== Utility Methods ====================
     
     private boolean isMovingTowards(EntityLivingBase source, EntityLivingBase target, double maxAngleDegrees) {
         Vec3 currentPos = source.getPositionVector();
@@ -510,8 +473,6 @@ public class ImprovedHitSelect extends Module {
             now - entry.getValue().lastHitTime > COMBAT_TIMEOUT_MS
         );
     }
-    
-    // ==================== Event Handlers ====================
     
     @EventTarget
     public void onUpdate(UpdateEvent event) {
@@ -591,8 +552,6 @@ public class ImprovedHitSelect extends Module {
         }
     }
     
-    // ==================== Module Lifecycle ====================
-    
     @Override
     public void onEnable() {
         super.onEnable();
@@ -626,4 +585,4 @@ public class ImprovedHitSelect extends Module {
             activeDynamicMode != null ? activeDynamicMode : primaryMode.getValue()
         };
     }
-            }
+}
