@@ -20,24 +20,16 @@ import net.minecraft.entity.EntityLivingBase;
 import java.util.Random;
 
 /**
- * Enhanced W-Tap Module
- * Provides smooth, customizable, and legitimate-looking W-tapping for PvP combat
- * 
- * Improvements:
- * - Smooth interpolation for natural movement
- * - Randomization to avoid pattern detection
- * - Health-based smart activation
- * - Multiple timing modes
- * - Better state management
- * - Performance optimized
+ * Enhanced WTap Module
+ * Smooth, customizable, and legitimate-looking W-tapping for PvP combat
  */
 public class ImprovedWtap extends Module {
     
     // ==================== Constants ====================
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final Random random = new Random();
-    private static final long TICK_MS = 50L; // Minecraft tick duration
-    private static final long MIN_ATTACK_INTERVAL = 500L; // Minimum time between activations
+    private static final long TICK_MS = 50L;
+    private static final long MIN_ATTACK_INTERVAL = 500L;
     
     // ==================== Properties ====================
     // Timing Properties
@@ -79,7 +71,7 @@ public class ImprovedWtap extends Module {
     private float currentForwardMultiplier = 1.0F;
     private float targetForwardMultiplier = 1.0F;
     
-    // Statistics (useful for debugging/tuning)
+    // Statistics
     private int activationCount = 0;
     private EntityLivingBase lastTarget = null;
     
@@ -348,7 +340,7 @@ public class ImprovedWtap extends Module {
         resetState();
     }
     
-    // ==================== Utility Methods ====================
+    // ==================== Public API for Integration ====================
     
     /**
      * Get activation statistics (useful for debugging)
@@ -373,4 +365,4 @@ public class ImprovedWtap extends Module {
         if (remainingDurationMs > 0) return "Active: " + remainingDurationMs + "ms";
         return "Finishing";
     }
-}
+            }
