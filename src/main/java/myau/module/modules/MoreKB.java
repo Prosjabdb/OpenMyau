@@ -2,6 +2,7 @@ package myau.module.modules;
 
 import myau.Myau;
 import myau.event.EventTarget;
+import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.AttackEvent;
 import myau.events.TickEvent;
@@ -24,14 +25,6 @@ import java.util.Random;
 /**
  * Ultimate MoreKB Module
  * Maximum knockback with intelligent anti-cheat bypass and module integration
- * 
- * Features:
- * - Multi-anti-cheat bypass profiles (Watchdog, Polar, Intave, AGC, etc.)
- * - Combo vs. Trading detection
- * - Integration with WTap, HitSelect, AimAssist
- * - Smart auto-disable in dangerous situations
- * - Adaptive packet timing
- * - Performance optimized
  */
 public class ImprovedMoreKB extends Module {
     
@@ -201,29 +194,24 @@ public class ImprovedMoreKB extends Module {
             return;
         }
         
-        // Player-only filter
         if (playersOnly.getValue() && !(targetEntity instanceof EntityPlayer)) {
             return;
         }
         
         EntityLivingBase target = (EntityLivingBase) targetEntity;
         
-        // Update combo tracking
         updateComboState(target);
         
-        // Set current target
         currentTarget = target;
         lastTarget = target;
         lastAttackTime = System.currentTimeMillis();
         ticksSinceAttack = 0;
         shouldProcess = true;
         
-        // Auto-disable checks
         if (shouldAutoDisable()) {
             return;
         }
         
-        // Immediate processing for certain modes
         String currentMode = mode.getValue();
         if (currentMode.equals("Legit-Fast") || currentMode.equals("Aggressive")) {
             processKnockbackImmediate(target);
@@ -238,15 +226,12 @@ public class ImprovedMoreKB extends Module {
         
         ticksSinceAttack++;
         
-        // Update combo timeout
         updateComboTimeout();
         
-        // Process delayed knockback
         if (shouldProcess && currentTarget != null) {
             processKnockbackDelayed();
         }
         
-        // Clean up old target reference
         if (ticksSinceAttack > 20) {
             currentTarget = null;
             shouldProcess = false;
@@ -259,7 +244,6 @@ public class ImprovedMoreKB extends Module {
             return;
         }
         
-        // Raycast detection for additional validation
         if (mc.objectMouseOver != null && 
             mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             
@@ -279,7 +263,6 @@ public class ImprovedMoreKB extends Module {
     private void updateComboState(EntityLivingBase target) {
         long currentTime = System.currentTimeMillis();
         
-        // Check if same target and within combo window (1.5 seconds)
         if (target == lastTarget && currentTime - lastHitTime < 1500L) {
             consecutiveHits++;
             isInCombo = consecutiveHits >= comboThreshold.getValue();
@@ -290,7 +273,6 @@ public class ImprovedMoreKB extends Module {
         
         lastHitTime = currentTime;
         
-        // Detect trading (both players hitting each other)
         if (mc.thePlayer.hurtTime > 0 && mc.thePlayer.hurtTime <= 5) {
             isTrading = true;
         } else {
@@ -301,7 +283,6 @@ public class ImprovedMoreKB extends Module {
     private void updateComboTimeout() {
         long currentTime = System.currentTimeMillis();
         
-        // Reset combo if timeout
         if (currentTime - lastHitTime > 1500L) {
             consecutiveHits = 0;
             isInCombo = false;
@@ -315,7 +296,6 @@ public class ImprovedMoreKB extends Module {
             return baseMultiplier;
         }
         
-        // Apply combo/trade multipliers
         if (isInCombo) {
             baseMultiplier *= comboKBMultiplier.getValue();
         } else if (isTrading) {
@@ -331,35 +311,6 @@ public class ImprovedMoreKB extends Module {
         return module != null && module.isEnabled();
     }
     
-    private boolean shouldIntegrateWithWTap() {
-        if (!integrateWTap.getValue() || !isModuleActive(wtapModule)) {
-            return false;
-        }
-        
-        // Only apply MoreKB if WTap is also active
-        // This creates a synergy effect
-        return mc.thePlayer.isSprinting();
-    }
-    
-    private boolean shouldIntegrateWithHitSelect() {
-        if (!integrateHitSelect.getValue() || !isModuleActive(hitSelectModule)) {
-            return true; // No restriction if not integrating
-        }
-        
-        // Don't apply MoreKB if HitSelect blocked the hit
-        // This prevents wasting packets on cancelled attacks
-        return true; // HitSelect handles this internally
-    }
-    
-    private boolean shouldRespectAimAssist() {
-        if (!respectAimAssist.getValue() || !isModuleActive(aimAssistModule)) {
-            return true; // No restriction if not integrating
-        }
-        
-        // Only apply if AimAssist is actively targeting
-        return true; // Assume targeting is valid if attack event fired
-    }
-    
     // ==================== Auto-Disable System ====================
     
     private boolean shouldAutoDisable() {
@@ -367,7 +318,6 @@ public class ImprovedMoreKB extends Module {
             return false;
         }
         
-        // Low health check
         if (disableOnLowHealth.getValue()) {
             float health = mc.thePlayer.getHealth();
             if (health <= lowHealthThreshold.getValue()) {
@@ -375,7 +325,6 @@ public class ImprovedMoreKB extends Module {
             }
         }
         
-        // High velocity check (being knocked back heavily)
         if (disableOnVelocity.getValue()) {
             double velocity = Math.sqrt(
                 mc.thePlayer.motionX * mc.thePlayer.motionX +
@@ -387,9 +336,7 @@ public class ImprovedMoreKB extends Module {
             }
         }
         
-        // Scaffold check (bridging/building)
         if (disableOnScaffold.getValue()) {
-            // Check if player is looking down and holding blocks
             if (mc.thePlayer.rotationPitch > 70.0F && mc.thePlayer.getHeldItem() != null) {
                 return true;
             }
@@ -405,17 +352,14 @@ public class ImprovedMoreKB extends Module {
             return false;
         }
         
-        // Death check
         if (entity.isDead || entity.getHealth() <= 0) {
             return false;
         }
         
-        // Player-only check
         if (playersOnly.getValue() && !(entity instanceof EntityPlayer)) {
             return false;
         }
         
-        // Distance check
         if (checkDistance.getValue()) {
             double distance = mc.thePlayer.getDistanceToEntity(entity);
             if (distance > maxDistance.getValue()) {
@@ -423,7 +367,6 @@ public class ImprovedMoreKB extends Module {
             }
         }
         
-        // Angle check (intelligent targeting)
         if (intelligent.getValue()) {
             double x = mc.thePlayer.posX - entity.posX;
             double z = mc.thePlayer.posZ - entity.posZ;
@@ -439,22 +382,11 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean canProcessKnockback() {
-        // Ground check
         if (onlyGround.getValue() && !mc.thePlayer.onGround) {
             return false;
         }
         
-        // Movement check
         if (onlyMoving.getValue() && !isMoving()) {
-            return false;
-        }
-        
-        // Module integration checks
-        if (!shouldIntegrateWithHitSelect()) {
-            return false;
-        }
-        
-        if (!shouldRespectAimAssist()) {
             return false;
         }
         
@@ -462,7 +394,6 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean shouldProcessEntity(EntityLivingBase entity) {
-        // Check hurt time
         if (entity.hurtTime != hurtTime.getValue()) {
             return false;
         }
@@ -489,25 +420,20 @@ public class ImprovedMoreKB extends Module {
             return;
         }
         
-        // Check hurt time
         if (currentTarget.hurtTime != hurtTime.getValue()) {
             return;
         }
         
-        // Apply delay if configured
         if (delayTicks.getValue() > 0 && ticksSinceAttack < delayTicks.getValue()) {
             return;
         }
         
-        // Adaptive delay based on anti-cheat profile
         if (adaptiveDelay.getValue() && !hasAdaptiveDelayPassed()) {
             return;
         }
         
-        // Randomization for anti-cheat bypass
         if (randomization.getValue()) {
             if (random.nextFloat() * 100.0F < randomChance.getValue()) {
-                // Skip this application randomly
                 shouldProcess = false;
                 return;
             }
@@ -534,14 +460,12 @@ public class ImprovedMoreKB extends Module {
         
         boolean success = false;
         
-        // Select application method based on mode and anti-cheat profile
         if (currentMode.equals("Adaptive")) {
             success = applyAdaptiveMode(acProfile);
         } else {
             success = applyModeKnockback(currentMode);
         }
         
-        // Apply extra packets if enabled
         if (success && extraPackets.getValue()) {
             applyExtraPackets();
         }
@@ -635,15 +559,12 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean applyHybridMode() {
-        // Client-side
         mc.thePlayer.setSprinting(false);
         mc.thePlayer.sprintingTicksLeft = 0;
         
-        // Packet-side
         sendSprintPacket(false);
         sendSprintPacket(true);
         
-        // Re-enable
         mc.thePlayer.setSprinting(true);
         return true;
     }
@@ -652,13 +573,11 @@ public class ImprovedMoreKB extends Module {
         float multiplier = getKnockbackMultiplier();
         int packets = Math.round(3 * multiplier);
         
-        // Multiple packet bursts
         for (int i = 0; i < packets; i++) {
             sendSprintPacket(false);
             sendSprintPacket(true);
         }
         
-        // Client reset
         mc.thePlayer.sprintingTicksLeft = 0;
         mc.thePlayer.setSprinting(true);
         return true;
@@ -667,15 +586,13 @@ public class ImprovedMoreKB extends Module {
     // ==================== Anti-Cheat Bypasses ====================
     
     private boolean applyWatchdogBypass() {
-        // Hypixel Watchdog: Less aggressive, spread packets
         if (packetDelay < 1) {
             packetDelay = 1;
-            return false; // Wait a tick
+            return false;
         }
         
         packetDelay = 0;
         
-        // Single clean packet method
         sendSprintPacket(false);
         sendSprintPacket(true);
         mc.thePlayer.setSprinting(true);
@@ -683,19 +600,16 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean applyPolarBypass() {
-        // Polar: Very strict, use minimal packets
         if (!mc.thePlayer.onGround) {
-            return false; // Only on ground
+            return false;
         }
         
-        // Client-side only method
         mc.thePlayer.setSprinting(false);
         mc.thePlayer.setSprinting(true);
         return true;
     }
     
     private boolean applyIntaveBypass() {
-        // Intave: Sensitive to packet timing
         if (packetDelay < 2) {
             packetDelay++;
             return false;
@@ -703,7 +617,6 @@ public class ImprovedMoreKB extends Module {
         
         packetDelay = 0;
         
-        // Delayed packet method
         sendSprintPacket(false);
         sendSprintPacket(true);
         mc.thePlayer.setSprinting(true);
@@ -711,8 +624,6 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean applyAGCBypass() {
-        // AGC (Advanced Guard Check): Moderate strictness
-        // Use hybrid approach
         mc.thePlayer.setSprinting(false);
         sendSprintPacket(false);
         sendSprintPacket(true);
@@ -721,7 +632,6 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean applyVerusBypass() {
-        // Verus: Less strict on packets
         sendSprintPacket(false);
         sendSprintPacket(true);
         sendSprintPacket(false);
@@ -731,19 +641,16 @@ public class ImprovedMoreKB extends Module {
     }
     
     private boolean applyNCPBypass() {
-        // NoCheatPlus: Older anti-cheat, lenient
         return applyDoublePacketMode();
     }
     
     private boolean applyVanillaMode() {
-        // Vanilla: No restrictions
         return applyAggressiveMode();
     }
     
     private boolean applyUniversalMode() {
-        // Universal: Balance between effectiveness and safety
         if (!mc.thePlayer.onGround && silentFail.getValue()) {
-            return false; // Safe fail
+            return false;
         }
         
         sendSprintPacket(false);
@@ -818,19 +725,16 @@ public class ImprovedMoreKB extends Module {
     public String[] getSuffix() {
         StringBuilder suffix = new StringBuilder();
         
-        // Mode
         suffix.append(mode.getValue());
         
-        // Show combo if active
         if (isInCombo) {
             suffix.append(" [").append(consecutiveHits).append("x]");
         }
         
-        // Show trading indicator
         if (isTrading) {
             suffix.append(" ⇄");
         }
         
         return new String[]{suffix.toString()};
     }
-    }
+                }
