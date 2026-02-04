@@ -15,87 +15,115 @@ import net.minecraft.util.MovingObjectPosition;
 
 public class MoreKB extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LEGIT", "LEGIT_FAST", "LESS_PACKET", "PACKET", "DOUBLE_PACKET"});
-    public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
-    public final BooleanProperty onlyGround = new BooleanProperty("only-ground", true);
+    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Legit", "LegitFast", "LessPacket", "Packet", "DoublePacket"});
+    public final BooleanProperty intelligent = new BooleanProperty("Intelligent", false);
+    public final BooleanProperty onlyGround = new BooleanProperty("OnlyGround", true);
+    
     private boolean shouldSprintReset;
     private EntityLivingBase target;
 
     public MoreKB() {
         super("MoreKB", false);
-        this.shouldSprintReset = false;
-        this.target = null;
     }
 
     @EventTarget
     public void onAttack(AttackEvent event) {
-        if (!this.isEnabled()) {
-            return;
-        }
-        Entity targetEntity = event.getTarget();
-        if (targetEntity != null && targetEntity instanceof EntityLivingBase) {
-            this.target = (EntityLivingBase) targetEntity;
+        if (!isEnabled()) return;
+        
+        Entity entity = event.getTarget();
+        if (entity instanceof EntityLivingBase) {
+            this.target = (EntityLivingBase) entity;
         }
     }
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (!this.isEnabled()) {
+        if (!isEnabled()) return;
+        
+        if (mode.getValue() == 1) {
+            handleLegitFast();
             return;
         }
-        if (this.mode.getValue() == 1) {
-            if (this.target != null && this.isMoving()) {
-                if ((this.onlyGround.getValue() && mc.thePlayer.onGround) || !this.onlyGround.getValue()) {
-                    mc.thePlayer.sprintingTicksLeft = 0;
-                }
-                this.target = null;
-            }
-            return;
+        
+        EntityLivingBase entity = getTargetEntity();
+        if (entity == null) return;
+        if (!isValidAngle(entity)) return;
+        if (entity.hurtTime != 10) return;
+        
+        executeKBMode();
+    }
+    
+    private void handleLegitFast() {
+        if (target == null || !isMoving()) return;
+        
+        if (!onlyGround.getValue() || mc.thePlayer.onGround) {
+            mc.thePlayer.sprintingTicksLeft = 0;
         }
-        EntityLivingBase entity = null;
-        if (mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY && mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
-            entity = (EntityLivingBase) mc.objectMouseOver.entityHit;
-        }
-        if (entity == null) {
-            return;
-        }
+        target = null;
+    }
+    
+    private EntityLivingBase getTargetEntity() {
+        MovingObjectPosition mop = mc.objectMouseOver;
+        if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.ENTITY) return null;
+        if (!(mop.entityHit instanceof EntityLivingBase)) return null;
+        return (EntityLivingBase) mop.entityHit;
+    }
+    
+    private boolean isValidAngle(EntityLivingBase entity) {
+        if (!intelligent.getValue()) return true;
+        
         double x = mc.thePlayer.posX - entity.posX;
         double z = mc.thePlayer.posZ - entity.posZ;
         float calcYaw = (float) (Math.atan2(z, x) * 180.0 / Math.PI - 90.0);
         float diffY = Math.abs(MathHelper.wrapAngleTo180_float(calcYaw - entity.rotationYawHead));
-        if (this.intelligent.getValue() && diffY > 120.0F) {
-            return;
+        
+        return diffY <= 120.0F;
+    }
+    
+    private void executeKBMode() {
+        switch (mode.getValue()) {
+            case 0: // Legit
+                handleLegit();
+                break;
+            case 2: // LessPacket
+                handleLessPacket();
+                break;
+            case 3: // Packet
+                sendSprintPacket(true);
+                break;
+            case 4: // DoublePacket
+                sendSprintPacket(true);
+                sendSprintPacket(true);
+                break;
         }
-        if (entity.hurtTime == 10) {
-            switch (this.mode.getValue()) {
-                case 0:
-                    this.shouldSprintReset = true;
-                    if (mc.thePlayer.isSprinting()) {
-                        mc.thePlayer.setSprinting(false);
-                        mc.thePlayer.setSprinting(true);
-                    }
-                    this.shouldSprintReset = false;
-                    break;
-                case 2:
-                    if (mc.thePlayer.isSprinting()) {
-                        mc.thePlayer.setSprinting(false);
-                    }
-                    mc.getNetHandler().addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-                    mc.thePlayer.setSprinting(true);
-                    break;
-                case 3:
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-                    mc.thePlayer.setSprinting(true);
-                    break;
-                case 4:
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-                    mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-                    mc.thePlayer.setSprinting(true);
-                    break;
-            }
+    }
+    
+    private void handleLegit() {
+        shouldSprintReset = true;
+        if (mc.thePlayer.isSprinting()) {
+            mc.thePlayer.setSprinting(false);
+            mc.thePlayer.setSprinting(true);
+        }
+        shouldSprintReset = false;
+    }
+    
+    private void handleLessPacket() {
+        if (mc.thePlayer.isSprinting()) {
+            mc.thePlayer.setSprinting(false);
+        }
+        mc.getNetHandler().addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
+        mc.thePlayer.setSprinting(true);
+    }
+    
+    private void sendSprintPacket(boolean start) {
+        C0BPacketEntityAction.Action action = start ? 
+            C0BPacketEntityAction.Action.START_SPRINTING : 
+            C0BPacketEntityAction.Action.STOP_SPRINTING;
+        
+        mc.thePlayer.sendQueue.addToSendQueue(new C0BPacketEntityAction(mc.thePlayer, action));
+        
+        if (start) {
+            mc.thePlayer.setSprinting(true);
         }
     }
 
@@ -105,6 +133,6 @@ public class MoreKB extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{this.mode.getValue().toString()};
+        return new String[]{mode.getModeAsString()};
     }
 }
