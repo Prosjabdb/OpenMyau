@@ -87,7 +87,6 @@ public class Wtap extends Module {
         durationTicks = 0L;
     }
     
-    @Override
     public void onDisable() {
         reset();
         timer.reset();
