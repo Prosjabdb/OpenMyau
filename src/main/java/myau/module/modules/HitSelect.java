@@ -7,12 +7,10 @@ import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.UpdateEvent;
 import myau.module.Module;
-import myau.property.properties.BooleanProperty;
 import myau.property.properties.ModeProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.projectile.EntityLargeFireball;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C0BPacketEntityAction;
@@ -21,17 +19,14 @@ import net.minecraft.util.Vec3;
 public class HitSelect extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     
-    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Second", "Criticals", "WTap", "Smart"});
-    public final BooleanProperty onlyPlayers = new BooleanProperty("OnlyPlayers", true);
-    public final BooleanProperty requireSprint = new BooleanProperty("RequireSprint", false);
+    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Second", "Criticals", "WTap"});
     
     private boolean sprintState;
     private boolean set;
     private double savedSlowdown;
     private int blockedHits;
     private int allowedHits;
-    private long lastAttackTime;
-    private int combo;
+    private int wtapTicks;
 
     public HitSelect() {
         super("HitSelect", false);
@@ -43,10 +38,7 @@ public class HitSelect extends Module {
         
         resetMotion();
         
-        // Reset combo if too much time passed
-        if (System.currentTimeMillis() - lastAttackTime > 1000) {
-            combo = 0;
-        }
+        if (wtapTicks > 0) wtapTicks--;
     }
 
     @EventTarget(Priority.HIGHEST)
@@ -70,13 +62,15 @@ public class HitSelect extends Module {
 
         Entity target = use.getEntityFromWorld(mc.theWorld);
         if (!(target instanceof EntityLivingBase) || target instanceof EntityLargeFireball) return;
-        if (onlyPlayers.getValue() && !(target instanceof EntityPlayer)) return;
 
         EntityLivingBase living = (EntityLivingBase) target;
-        lastAttackTime = System.currentTimeMillis();
-        combo++;
-        
-        boolean allow = shouldAllowHit(living);
+        boolean allow = true;
+
+        switch (mode.getValue()) {
+            case 0: allow = prioritizeSecondHit(mc.thePlayer, living); break;
+            case 1: allow = prioritizeCriticalHits(mc.thePlayer); break;
+            case 2: allow = prioritizeWTapHits(mc.thePlayer); break;
+        }
 
         if (!allow) {
             event.setCancelled(true);
@@ -86,85 +80,48 @@ public class HitSelect extends Module {
         }
     }
 
-    private boolean shouldAllowHit(EntityLivingBase target) {
-        if (requireSprint.getValue() && !sprintState) return true;
-        
-        switch (mode.getValue()) {
-            case 0: return checkSecondHit(target);
-            case 1: return checkCriticalHit();
-            case 2: return checkWTapHit();
-            case 3: return checkSmartHit(target);
-            default: return true;
-        }
-    }
+    private boolean prioritizeSecondHit(EntityLivingBase player, EntityLivingBase target) {
+        if (target.hurtTime != 0) return true;
+        if (player.hurtTime <= player.maxHurtTime - 1) return true;
+        if (player.getDistanceToEntity(target) < 2.5) return true;
+        if (!isMovingTowards(target, player, 60.0)) return true;
+        if (!isMovingTowards(player, target, 60.0)) return true;
 
-    private boolean checkSecondHit(EntityLivingBase target) {
-        // Always allow if target already hurt (second hit)
-        if (target.hurtTime > 0) return true;
-        
-        // Emergency conditions - always hit
-        if (mc.thePlayer.hurtTime > 0) return true;
-        if (mc.thePlayer.getDistanceToEntity(target) < 2.0) return true;
-        if (combo > 3) return true; // Don't block too many in a row
-        
-        // Block first hit
         fixMotion();
         return false;
     }
 
-    private boolean checkCriticalHit() {
-        // Allow if already critting
-        if (!mc.thePlayer.onGround && mc.thePlayer.fallDistance > 0.0f) return true;
-        
-        // Emergency conditions
-        if (mc.thePlayer.hurtTime > 0) return true;
-        if (combo > 2) return true;
-        
-        // Block non-crits
-        if (mc.thePlayer.onGround) {
-            fixMotion();
-            return false;
-        }
-        
-        return true;
-    }
+    private boolean prioritizeCriticalHits(EntityLivingBase player) {
+        if (player.onGround) return true;
+        if (player.hurtTime != 0) return true;
+        if (player.fallDistance > 0.0f) return true;
 
-    private boolean checkWTapHit() {
-        // Allow if sprinting and moving forward
-        if (sprintState && mc.gameSettings.keyBindForward.isKeyDown()) return true;
-        
-        // Emergency conditions
-        if (mc.thePlayer.isCollidedHorizontally) return true;
-        if (mc.thePlayer.hurtTime > 0) return true;
-        if (combo > 2) return true;
-        
-        // Block bad hits
         fixMotion();
         return false;
     }
 
-    private boolean checkSmartHit(EntityLivingBase target) {
-        // Combine Second + Criticals logic
-        boolean secondHit = target.hurtTime > 0;
-        boolean critting = !mc.thePlayer.onGround && mc.thePlayer.fallDistance > 0.0f;
+    private boolean prioritizeWTapHits(EntityLivingBase player) {
+        // Already in wtap state - allow combo
+        if (wtapTicks > 0) return true;
         
-        // Always allow second hit crits
-        if (secondHit && critting) return true;
+        // Against wall - can't wtap
+        if (player.isCollidedHorizontally) return true;
         
-        // Allow second hits if combo is high
-        if (secondHit && combo > 2) return true;
+        // Not moving forward - no sprint
+        if (!mc.gameSettings.keyBindForward.isKeyDown()) return true;
         
-        // Allow crits if health is low (emergency)
-        if (critting && mc.thePlayer.getHealth() < 8.0f) return true;
+        // Sprinting - perfect for wtap
+        if (sprintState && player.isSprinting()) {
+            wtapTicks = 3;
+            return true;
+        }
         
-        // Emergency - being attacked
-        if (mc.thePlayer.hurtTime > 0) return true;
-        
-        // Too close - just hit
-        if (mc.thePlayer.getDistanceToEntity(target) < 2.0) return true;
-        
-        // Block bad hits
+        // Block and force sprint
         fixMotion();
+        if (!sprintState) {
+            player.setSprinting(true);
+        }
+        
         return false;
     }
 
@@ -195,6 +152,31 @@ public class HitSelect extends Module {
         savedSlowdown = 0.0;
     }
 
+    private boolean isMovingTowards(EntityLivingBase source, EntityLivingBase target, double maxAngle) {
+        Vec3 currentPos = source.getPositionVector();
+        Vec3 lastPos = new Vec3(source.lastTickPosX, source.lastTickPosY, source.lastTickPosZ);
+        Vec3 targetPos = target.getPositionVector();
+
+        double mx = currentPos.xCoord - lastPos.xCoord;
+        double mz = currentPos.zCoord - lastPos.zCoord;
+        double moveLen = Math.sqrt(mx * mx + mz * mz);
+        if (moveLen == 0.0) return false;
+
+        mx /= moveLen;
+        mz /= moveLen;
+
+        double tx = targetPos.xCoord - currentPos.xCoord;
+        double tz = targetPos.zCoord - currentPos.zCoord;
+        double targetLen = Math.sqrt(tx * tx + tz * tz);
+        if (targetLen == 0.0) return false;
+
+        tx /= targetLen;
+        tz /= targetLen;
+
+        double dot = mx * tx + mz * tz;
+        return dot >= Math.cos(Math.toRadians(maxAngle));
+    }
+
     @Override
     public void onDisabled() {
         resetMotion();
@@ -203,13 +185,12 @@ public class HitSelect extends Module {
         savedSlowdown = 0.0;
         blockedHits = 0;
         allowedHits = 0;
-        combo = 0;
-        lastAttackTime = 0;
+        wtapTicks = 0;
     }
 
     @Override
     public String[] getSuffix() {
-        String[] modes = {"Second", "Criticals", "WTap", "Smart"};
+        String[] modes = {"Second", "Criticals", "WTap"};
         return new String[]{modes[mode.getValue()]};
     }
 }
