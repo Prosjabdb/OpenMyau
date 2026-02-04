@@ -169,6 +169,7 @@ public class HitSelect extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{mode.getModes()[mode.getValue()]};
+        String[] modes = {"Second", "Criticals", "WTap"};
+        return new String[]{modes[mode.getValue()]};
     }
 }
