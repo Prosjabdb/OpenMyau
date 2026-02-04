@@ -16,64 +16,80 @@ import net.minecraft.potion.Potion;
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private final TimerUtil timer = new TimerUtil();
-    private boolean active = false;
-    private boolean stopForward = false;
-    private long delayTicks = 0L;
-    private long durationTicks = 0L;
-    public final FloatProperty delay = new FloatProperty("delay", 5.5F, 0.0F, 10.0F);
-    public final FloatProperty duration = new FloatProperty("duration", 1.5F, 1.0F, 5.0F);
-
-    private boolean canTrigger() {
-        return !(mc.thePlayer.movementInput.moveForward < 0.8F)
-                && !mc.thePlayer.isCollidedHorizontally
-                && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F) || mc.thePlayer.capabilities.allowFlying) && (mc.thePlayer.isSprinting()
-                || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
-    }
+    
+    private boolean active;
+    private boolean stopForward;
+    private long delayTicks;
+    private long durationTicks;
+    
+    public final FloatProperty delay = new FloatProperty("Delay", 3.0F, 0.0F, 10.0F);
+    public final FloatProperty duration = new FloatProperty("Duration", 1.5F, 0.5F, 5.0F);
 
     public Wtap() {
         super("WTap", false);
     }
 
+    private boolean canTrigger() {
+        if (mc.thePlayer.movementInput.moveForward < 0.8F) return false;
+        if (mc.thePlayer.isCollidedHorizontally) return false;
+        if (mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F && !mc.thePlayer.capabilities.allowFlying) return false;
+        if (mc.thePlayer.isPotionActive(Potion.blindness)) return false;
+        if (mc.thePlayer.isUsingItem() && !mc.thePlayer.isSprinting()) return false;
+        
+        return mc.thePlayer.isSprinting() || mc.gameSettings.keyBindSprint.isKeyDown();
+    }
+
     @EventTarget(Priority.LOWEST)
     public void onMoveInput(MoveInputEvent event) {
-        if (this.active) {
-            if (!this.stopForward && !this.canTrigger()) {
-                this.active = false;
-                while (this.delayTicks > 0L) {
-                    this.delayTicks -= 50L;
-                }
-                while (this.durationTicks > 0L) {
-                    this.durationTicks -= 50L;
-                }
-            } else if (this.delayTicks > 0L) {
-                this.delayTicks -= 50L;
-            } else {
-                if (this.durationTicks > 0L) {
-                    this.durationTicks -= 50L;
-                    this.stopForward = true;
-                    mc.thePlayer.movementInput.moveForward = 0.0F;
-                }
-                if (this.durationTicks <= 0L) {
-                    this.active = false;
-                }
-            }
+        if (!active) return;
+        
+        if (stopForward || !canTrigger()) {
+            reset();
+            return;
+        }
+        
+        if (delayTicks > 0) {
+            delayTicks -= 50L;
+            return;
+        }
+        
+        if (durationTicks > 0) {
+            durationTicks -= 50L;
+            stopForward = true;
+            mc.thePlayer.movementInput.moveForward = 0.0F;
+        } else {
+            active = false;
         }
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
-            if (event.getPacket() instanceof C02PacketUseEntity
-                    && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK
-                    && !this.active
-                    && this.timer.hasTimeElapsed(500L)
-                    && mc.thePlayer.isSprinting()) {
-                this.timer.reset();
-                this.active = true;
-                this.stopForward = false;
-                this.delayTicks = this.delayTicks + (long) (50.0F * this.delay.getValue());
-                this.durationTicks = this.durationTicks + (long) (50.0F * this.duration.getValue());
-            }
+        if (!isEnabled() || event.isCancelled() || event.getType() != EventType.SEND) return;
+        if (active || !timer.hasTimeElapsed(500L)) return;
+        if (!mc.thePlayer.isSprinting()) return;
+        
+        if (event.getPacket() instanceof C02PacketUseEntity) {
+            C02PacketUseEntity packet = (C02PacketUseEntity) event.getPacket();
+            if (packet.getAction() != Action.ATTACK) return;
+            
+            timer.reset();
+            active = true;
+            stopForward = false;
+            delayTicks = (long) (50.0F * delay.getValue());
+            durationTicks = (long) (50.0F * duration.getValue());
         }
+    }
+    
+    private void reset() {
+        active = false;
+        stopForward = false;
+        delayTicks = 0L;
+        durationTicks = 0L;
+    }
+    
+    @Override
+    public void onDisable() {
+        reset();
+        timer.reset();
     }
 }
