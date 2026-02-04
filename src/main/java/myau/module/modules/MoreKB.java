@@ -82,16 +82,16 @@ public class MoreKB extends Module {
     
     private void executeKBMode() {
         switch (mode.getValue()) {
-            case 0: // Legit
+            case 0:
                 handleLegit();
                 break;
-            case 2: // LessPacket
+            case 2:
                 handleLessPacket();
                 break;
-            case 3: // Packet
+            case 3:
                 sendSprintPacket(true);
                 break;
-            case 4: // DoublePacket
+            case 4:
                 sendSprintPacket(true);
                 sendSprintPacket(true);
                 break;
@@ -133,6 +133,6 @@ public class MoreKB extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{mode.getModeAsString()};
+        return new String[]{mode.getModes()[mode.getValue()]};
     }
 }
