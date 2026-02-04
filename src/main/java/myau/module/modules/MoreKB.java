@@ -133,6 +133,7 @@ public class MoreKB extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{mode.getModes()[mode.getValue()]};
+        String[] modes = {"Legit", "LegitFast", "LessPacket", "Packet", "DoublePacket"};
+        return new String[]{modes[mode.getValue()]};
     }
 }
